@@ -24,6 +24,20 @@ def c(get_contract, w3):
     return c
 
 
+@pytest.fixture
+def recieved_c(get_contract, w3):
+    with open("examples/tokens/ERC721.vy") as f:
+        code = f.read()
+    c = get_contract(code)
+    minter, someone, operator = w3.eth.accounts[:3]
+    # someone owns 3 tokens
+    for i in SOMEONE_TOKEN_IDS:
+        c.mint(someone, i, transact={"from": minter})
+    # operator owns 1 tokens
+    c.mint(operator, OPERATOR_TOKEN_ID, transact={"from": minter})
+    return c
+
+
 def test_supportsInterface(c):
     assert c.supportsInterface(ERC165_INTERFACE_ID) == 1
     assert c.supportsInterface(ERC721_INTERFACE_ID) == 1
@@ -186,16 +200,19 @@ def test_safeTransferFrom_by_owner(c, w3, assert_tx_failed, get_logs):
     assert c.balanceOf(operator) == 2
 
 
-def test_safeTransferFrom_overload_function(c, w3, assert_tx_failed, get_logs):
+def test_safeTransferFrom_overload_function(c, recieved_c, w3, assert_tx_failed, get_logs):
+    print(">>>>>>>>>>> test_safeTransferFrom_overload_function")
+
     someone, operator = w3.eth.accounts[1:3]
 
     # transfer by owner
     tx_hash = c.safeTransferFrom(
         someone, operator, SOMEONE_TOKEN_IDS[0], b"101", transact={"from": someone}
     )
-
+    print(">>>>>>>>>>> tx_hash", tx_hash)
+    # assert tx_hash == ""
     logs = get_logs(tx_hash, c, "Transfer")
-
+    print(">>>>>>>>>>> logs", logs)
     assert len(logs) > 0
     args = logs[0].args
     assert args.sender == someone
